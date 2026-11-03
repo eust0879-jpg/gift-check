@@ -1,0 +1,14 @@
+{
+  "unit": "GRAM",
+  "min_floor": 30,
+  "min_sales": 10,
+  "min_days": 8,
+  "min_abs_move": 3,
+  "up_pct": 15,
+  "down_pct": 20,
+  "ref_days": 7,
+  "breakout_days": 14,
+  "max_cards": 8,
+  "cooldown_days": 3,
+  "digest_top": 5
+}
