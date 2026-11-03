@@ -1,0 +1,71 @@
+name: bot
+
+# Вручную: кнопка "Run workflow" (по умолчанию режим preview, ничего не отправляет).
+# По расписанию: раз в сутки, но только если в Settings -> Variables создана переменная BOT_ENABLED со значением true.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Режим: preview (показать), diag (проверка), chats (найти канал), say (тестовое сообщение), run (боевой запуск)"
+        type: choice
+        default: preview
+        options:
+          - preview
+          - diag
+          - chats
+          - say
+          - run
+      confirm_send:
+        description: "Разрешить отправку в Telegram?"
+        type: choice
+        default: "no"
+        options:
+          - "no"
+          - "yes"
+      text:
+        description: "Текст для режима say"
+        required: false
+        default: ""
+  schedule:
+    - cron: "17 6 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gift-bot
+  cancel-in-progress: false
+
+jobs:
+  bot:
+    if: github.event_name != 'schedule' || vars.BOT_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Запуск бота
+        env:
+          PYTHONUTF8: "1"
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_THREAD_ID: ${{ vars.TELEGRAM_THREAD_ID }}
+          BOT_MODE: ${{ github.event_name == 'schedule' && 'run' || inputs.mode }}
+          ALLOW_SEND: ${{ (github.event_name == 'schedule' && 'yes') || (inputs.confirm_send == 'yes' && 'yes') || 'no' }}
+          SAY_TEXT: ${{ inputs.text }}
+        run: python bot.py
+
+      - name: Сохранить состояние
+        if: always() && (github.event_name == 'schedule' || (inputs.mode == 'run' && inputs.confirm_send == 'yes'))
+        run: |
+          if [ -n "$(git status --porcelain state.json)" ]; then
+            git config user.name "gift-radar"
+            git config user.email "gift-radar@users.noreply.github.com"
+            git add state.json
+            git commit -m "state: update"
+            git push
+          fi
